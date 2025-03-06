@@ -1,5 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation  
+from moviepy.editor import VideoFileClip  
+
+
+
 
 def VicsekSimulation(r0, th0, r, v, dt, ts):
     N = r0.shape[0]
@@ -30,47 +35,36 @@ def VicsekUpdation(N, r_old, th_old,  r, v, dt):
     return r_new, th_new
 
 
+def generate_particle_video(x_data, y_data, angle_data, output_filename='particles.mp4', fps=30):
+    """
+    Generates a video of particles moving from time series arrays of x, y coordinates, and angles.
 
-
-def PhaseMatrixVideo(phase_arr, theta0, r, time, cmap, fname):
-    cmap = firefly
-    norm = plt.Normalize(0, 2 * np.pi)
-    colors = [cmap(norm(phase)) for phase in theta0]
-    N = phase_arr.shape[0]
-    grid_size = np.sqrt(N)
-    circle_radius = 0.4
-    circle_positions = [(i % grid_size, i // grid_size) for i in range(N)]
-
-    fig, ax = plt.subplots(figsize=(6,6))
-    fig.patch.set_facecolor('black')
-
-
-    circles = [plt.Circle((pos[0], pos[1]), 
-                          circle_radius, 
-                          color=cmap(norm(theta0[i])), lw=2) 
-               for i, pos in enumerate(circle_positions)]
-    for circle in circles:
-        ax.add_artist(circle)
-
-    ax.set_xlim(-1, grid_size)
-    ax.set_ylim(-1, grid_size)
-    ax.set_aspect('equal')
-    ax.axis('off')
-
-    def init():
-        for circle in circles:
-
-            circle.set_color(cmap(norm(0)))
-        return circles
-
-    def animate(i):
-        phases = phase_arr[i]
-        ax.set_title(f'Kuramoto Oscillators \n $r={ round(r[i], 3)}, t={round(time[i],1)}$', color = 'white', fontsize=24)
-        for j, circle in enumerate(circle):
-            color = cmap(norm(phases[j]))
-            circle.set_color(color)
-        return circles
-
-    anim = FuncAnimation(fig, animate , init_func=init, frames=T, interval=100, blit=True)
+    Parameters:
+    x_data (numpy.ndarray): A 2D array where each row represents the x-coordinates of particles at a time step.
+    y_data (numpy.ndarray): A 2D array where each row represents the y-coordinates of particles at a time step.
+    angle_data (numpy.ndarray): A 2D array where each row represents the angles of the particles at a time step.
+    output_filename (str): The filename for the output video.
+    fps (int): Frames per second for the output video.
+    """
+    num_frames, num_particles = x_data.shape
     
-    anim.save(f'{fname}.mp4', writer='ffmpeg', fps=15, dpi=450, bitrate=2000)       
+    fig, ax = plt.subplots()
+    ax.set_xlim(np.min(x_data), np.max(x_data))
+    ax.set_ylim(np.min(y_data), np.max(y_data))
+    
+    arrows = [ax.arrow(x_data[0, i], y_data[0, i], np.cos(angle_data[0, i]) * 0.1, np.sin(angle_data[0, i]) * 0.1,
+                        head_width=0.05, head_length=0.1, fc='blue', ec='blue') for i in range(num_particles)]
+    
+    def update(frame):
+        for i, arrow in enumerate(arrows):
+            arrow.remove()
+            arrows[i] = ax.arrow(x_data[frame, i], y_data[frame, i], 
+                                 np.cos(angle_data[frame, i]) * 0.1, np.sin(angle_data[frame, i]) * 0.1,
+                                 head_width=0.05, head_length=0.1, fc='blue', ec='blue')
+        return arrows
+    
+    ani = animation.FuncAnimation(fig, update, frames=num_frames, interval=1000/fps, blit=False)
+    ani.save(output_filename, writer='ffmpeg', fps=fps)
+    plt.close(fig)
+    
+    print(f"Video saved as {output_filename}")
